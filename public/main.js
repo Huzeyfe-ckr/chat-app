@@ -8,43 +8,43 @@ const form = document.getElementById('form');
 const input = document.getElementById('message');
 const messages = document.getElementById('messages');
 
-let pseudo = null;
-
+// Validation du pseudo
 pseudoSubmit.addEventListener('click', () => {
-  const val = pseudoInput.value.trim();
-  if (val) {
-    pseudo = val;
-    pseudoContainer.style.display = 'none';
-    chatContainer.style.display = 'block';
-    input.focus();
+  const pseudo = pseudoInput.value.trim();
+  if (pseudo) {
+    socket.emit('set pseudo', pseudo, (response) => {
+      if (response.success) {
+        pseudoContainer.style.display = 'none';
+        chatContainer.style.display = 'block';
+      }
+    });
   }
 });
 
+// Réception de l'historique
+socket.on('chat history', (history) => {
+  messages.innerHTML = '';
+  history.forEach((msg) => {
+    const item = document.createElement('li');
+    item.textContent = `${msg.user.pseudo}: ${msg.content}`;
+    messages.appendChild(item);
+  });
+  window.scrollTo(0, document.body.scrollHeight);
+});
+
+// Réception d'un nouveau message
+socket.on('chat message', (data) => {
+  const item = document.createElement('li');
+  item.textContent = `${data.pseudo}: ${data.content}`;
+  messages.appendChild(item);
+  window.scrollTo(0, document.body.scrollHeight);
+});
+
+// Envoi d'un message
 form.addEventListener('submit', (e) => {
   e.preventDefault();
-  if (!pseudo) {
-    alert('Veuillez d\'abord entrer un pseudo');
-    return;
-  }
   if (input.value.trim()) {
-    socket.emit('chat message', {
-      pseudo,
-      message: input.value
-    });
+    socket.emit('chat message', input.value.trim());
     input.value = '';
   }
 });
-
-socket.on('chat message', (data) => {
-  const li = document.createElement('li');
-  li.textContent = `${data.pseudo} : ${data.message}`;
-  messages.appendChild(li);
-});
-
-socket.on('chat history', (msgs) => {
-    msgs.forEach(data => {
-      const li = document.createElement('li');
-      li.textContent = `${data.pseudo} : ${data.content}`;
-      messages.appendChild(li);
-    });
-  });
