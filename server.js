@@ -1,20 +1,22 @@
-// const express = require('express');
-// const http = require('http');
-// const { Server } = require('socket.io');
-// const { renderFile } = require('twig');
-// const path = require('path');
-
 import express from 'express';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import twig from 'twig';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+
+// Prisma 7 & PostgreSQL Driver Adapter imports
+import pg from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from './src/generated/prisma/client.js';
+
 dotenv.config();
 
-const prisma = new PrismaClient();
+// Initialisation de Prisma 7 avec l'adaptateur PG
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 // Pour obtenir __dirname en ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -23,17 +25,8 @@ const __dirname = dirname(__filename);
 ///////////
 
 const app = express();
-//const server = http.createServer(app);
 const server = createServer(app);
 const io = new Server(server);
-
-// // Twig config
-// app.set('view engine', 'twig');
-// app.set('views', './views');
-// app.engine('twig', renderFile);
-
-// // Fichiers statiques
-// app.use(express.static(path.join(__dirname, 'public')));
 
 // Config Twig
 app.set('views', join(__dirname, 'views'));
@@ -48,29 +41,14 @@ app.get('/', (req, res) => {
   res.render('index.twig');
 });
 
-// // Socket.IO
-// io.on('connection', (socket) => {
-//     console.log('Un utilisateur connecté');
-  
-//     socket.on('chat message', (data) => {
-//       io.emit('chat message', {
-//         pseudo: data.pseudo,
-//         message: data.message
-//       });
-//     });
-  
-//     socket.on('disconnect', () => {
-//       console.log('Un utilisateur déconnecté');
-//     });
-// });  
-
+// Socket.IO
 io.on('connection', async (socket) => {
   console.log('Un utilisateur connecté');
 
-  // Récupérer les derniers messages (par exemple, les 50 plus récents)
+  // Récupérer les derniers messages (les 50 plus récents)
   try {
     const lastMessages = await prisma.message.findMany({
-      orderBy: { createdAt: 'asc' },  // ou 'desc' puis inverser côté client
+      orderBy: { createdAt: 'asc' },
       take: 50,
     });
     // Envoyer l’historique au client connecté
